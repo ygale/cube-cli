@@ -1,0 +1,30 @@
+[tool.poetry]
+name = "rubik-cli"
+version = "0.1.0"
+description = "A CLI application for interacting with rubik_model"
+authors = []
+readme = "README.md"
+packages = [{include = "rubik_cli", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+rubik-model = "*"
+
+[tool.poetry.scripts]
+rubik = "rubik_cli.main:main"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+mypy = "^1.10"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+strict = true
+python_version = "3.13"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
