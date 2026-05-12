@@ -8,7 +8,7 @@ packages = [{include = "rubik_cli", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.13"
-rubik-model = "*"
+rubik-model = "^1.0.3"
 
 [tool.poetry.scripts]
 rubik = "rubik_cli.main:main"
