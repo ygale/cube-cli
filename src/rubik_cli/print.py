@@ -2,34 +2,34 @@
 
 from collections.abc import Iterator
 
-from rubik_model import Cube, Side, all_colors, side_color
+from rubik_model import Color, Cube, Side, all_colors, side_color
 
 
 def _color_char(cube: Cube, side: Side) -> str:
     '''Return the single character for a side color.'''
-    return side_color(cube, side).name[0].lower()
+    c: str = side_color(cube, side).name[0].lower()
+    return c
 
 
-def _face_grid(cube: Cube, side: Side, colors: list[int]) -> list[str]:
+def _face_grid(
+    cube: Cube, side: Side, indices: list[int]
+) -> list[str]:
     '''Return three display rows for a face.
 
-    colors is a list of 9 indices into the all_colors list for this
-    side: row0-col0, row0-col1, row0-col2, row1-col0, row1-col2,
-    row2-col0, row2-col1, row2-col2 (center is side_color).
-    The index -1 means use side_color (the center).
+    indices is a list of 9 values indexing into all_colors for this
+    side. The value -1 means use side_color (the center sticker).
     '''
-    ac: list[int] = colors
+    ac: list[Color] = all_colors(cube)[side]
     raw: list[str] = [
-        all_colors(cube)[side][i].name[0].lower() if i >= 0
+        ac[i].name[0].lower() if i >= 0
         else _color_char(cube, side)
-        for i in ac
+        for i in indices
     ]
-    rows: list[str] = [
+    return [
         ' '.join(raw[0:3]),
         ' '.join(raw[3:6]),
         ' '.join(raw[6:9]),
     ]
-    return rows
 
 
 def print_cube(cube: Cube) -> Iterator[str]:
@@ -37,73 +37,64 @@ def print_cube(cube: Cube) -> Iterator[str]:
 
     Layout:
 
-         -----
          top
          -----
     left | front | right | back
          -----
          bottom
-         -----
 
     Each face is three rows of three color chars separated by spaces.
     Faces in the horizontal row are separated by " | ".
-    top/bottom are indented to align with front (5 chars = "xxx | ").
-    The separator between top and the row is "-----", likewise below.
+    top/bottom are indented to align with front.
+    Separators appear only between adjacent faces.
 
-    For each face the 9 positions are filled from all_colors (8
-    outer stickers) plus side_color (center), using the index mapping:
+    Index mapping into all_colors (8 outer stickers, -1 = center):
       [0][1][2]
       [7][c][3]
       [6][5][4]
-    where the starting corner and CW direction follow all_colors docs.
 
-    For the four horizontal faces the top row is the edge adjacent
-    to top and the bottom row is adjacent to bottom, left-to-right
-    as seen facing that face from outside.
-
-    For top, the bottom row is adjacent to front and the top row is
-    adjacent to back.  For bottom the opposite: top row adjacent to
-    front, bottom row adjacent to back.
+    Starting corners and CW directions per all_colors docstring:
+      front:  borders left, top  → top-left corner, CW
+      top:    borders front, left → front-left corner, CW (looking down)
+      right:  borders front, top  → front-top corner, CW (looking right)
+      left:   borders top, front  → top-front corner, CW (looking left)
+      bottom: borders left, front → left-front corner, CW (looking up)
+      back:   borders top, left   → top-left(back)=top-right(cube), CW (looking back)
     '''
-    ac: dict[Side, list[int]] = {
-        # front: starts top-left (borders left,top), CW
-        # row0=[0,1,2], row1=[7,c,3], row2=[6,5,4]
-        Side.FRONT: [0, 1, 2, 7, -1, 3, 6, 5, 4],
-        # top: starts front-left (borders front,left), CW
-        # bottom edge (adj front) = [0,1,2]
-        # top edge (adj back)     = [6,5,4]
-        # display: top-row=[6,5,4], mid=[7,c,3], bot-row=[0,1,2]
-        Side.TOP:    [6, 5, 4, 7, -1, 3, 0, 1, 2],
-        # bottom: starts left-front (borders left,front), CW
-        # top edge (adj front) = [0,1,2]
-        # display: top-row=[0,1,2], mid=[7,c,3], bot-row=[6,5,4]
-        Side.BOTTOM: [0, 1, 2, 7, -1, 3, 6, 5, 4],
-        # left: starts top-front (borders top,front), CW
-        # top edge (adj top): top-back=2, top=1, top-front=0 → [2,1,0]
-        # bot edge (adj bot): bot-back=4, bot=5, bot-front=6 → [4,5,6]
-        Side.LEFT:   [2, 1, 0, 7, -1, 3, 4, 5, 6],
-        # right: starts front-top (borders front,top), CW
-        # top edge (adj top): front-top=0, top=1, back-top=2 → [0,1,2]
-        # bot edge (adj bot): front-bot=6, bot=5, back-bot=4 → [6,5,4]
-        Side.RIGHT:  [0, 1, 2, 7, -1, 3, 6, 5, 4],
-        # back: starts top-left (borders top,left), CW facing back
-        # displayed left-to-right as seen from front (mirror):
-        # top edge (adj top): top-right(back)=2, top=1, top-left(back)=0 → [2,1,0]
-        # bot edge (adj bot): bot-right(back)=4, bot=5, bot-left(back)=6 → [4,5,6]
-        Side.BACK:   [2, 1, 0, 3, -1, 7, 4, 5, 6],
+    face_indices: dict[Side, list[int]] = {
+        # front: top-left start, CW looking front
+        Side.FRONT:  [0, 1, 2,  7, -1, 3,  6, 5, 4],
+        # top: front-left start, CW looking down
+        Side.TOP:    [2, 3, 4,  1, -1, 5,  0, 7, 6],
+        # bottom: left-front start, CW looking up
+        Side.BOTTOM: [0, 1, 2,  7, -1, 3,  6, 5, 4],
+        # left: top-front start, CW looking from left
+        Side.LEFT:   [6, 7, 0,  5, -1, 1,  4, 3, 2],
+        # right: front-top start, CW looking from right
+        Side.RIGHT:  [0, 1, 2,  7, -1, 3,  6, 5, 4],
+        # back: top-right start, CW looking from back
+        Side.BACK:   [6, 7, 0,  5, -1, 1,  4, 3, 2],
     }
-
     indent: str = ' ' * 6
     sep: str = '-' * 5
-
-    top_rows: list[str] = _face_grid(cube, Side.TOP, ac[Side.TOP])
-    bot_rows: list[str] = _face_grid(cube, Side.BOTTOM, ac[Side.BOTTOM])
-    left_rows: list[str] = _face_grid(cube, Side.LEFT, ac[Side.LEFT])
-    front_rows: list[str] = _face_grid(cube, Side.FRONT, ac[Side.FRONT])
-    right_rows: list[str] = _face_grid(cube, Side.RIGHT, ac[Side.RIGHT])
-    back_rows: list[str] = _face_grid(cube, Side.BACK, ac[Side.BACK])
-
-    yield indent + sep
+    top_rows: list[str] = _face_grid(
+        cube, Side.TOP, face_indices[Side.TOP]
+    )
+    bot_rows: list[str] = _face_grid(
+        cube, Side.BOTTOM, face_indices[Side.BOTTOM]
+    )
+    left_rows: list[str] = _face_grid(
+        cube, Side.LEFT, face_indices[Side.LEFT]
+    )
+    front_rows: list[str] = _face_grid(
+        cube, Side.FRONT, face_indices[Side.FRONT]
+    )
+    right_rows: list[str] = _face_grid(
+        cube, Side.RIGHT, face_indices[Side.RIGHT]
+    )
+    back_rows: list[str] = _face_grid(
+        cube, Side.BACK, face_indices[Side.BACK]
+    )
     for row in top_rows:
         yield indent + row
     yield indent + sep
@@ -112,4 +103,3 @@ def print_cube(cube: Cube) -> Iterator[str]:
     yield indent + sep
     for row in bot_rows:
         yield indent + row
-    yield indent + sep
