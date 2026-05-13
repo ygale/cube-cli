@@ -5,3 +5,11 @@ dist/
 .venv/
 .mypy_cache/
 .pytest_cache/
+
+# Emacs
+*~
+\#*\#
+.\#*
+# Vim
+*.swp
+*.swo
