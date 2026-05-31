@@ -1,13 +1,13 @@
-'''Tests for rubik_cli.print.'''
+'''Tests for cube_cli.print.'''
 
 from collections.abc import Iterable
 import pytest
 
-from rubik_model import (
+from cube_model import (
   Cube, Move, move, Multiplicity, Side,
   side_color, solved,
 )
-from rubik_cli.print import print_cube
+from cube_cli.print import print_cube
 
 # A reference cube for a source of sticker objects
 _ref: Cube = solved()

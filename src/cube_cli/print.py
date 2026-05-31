@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 
-from rubik_model import Color, Cube, Side, all_colors, side_color
+from cube_model import Color, Cube, Side, all_colors, side_color
 
 def _center(cube: Cube, side: Side) -> str:
   '''The color of the center of a side.'''

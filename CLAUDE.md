@@ -1,14 +1,14 @@
 @python.md
 
-# rubik_cli — Claude Project Notes
+# cube_cli — Claude Project Notes
 
 ## What This Project Is
-A Python CLI application that wraps `rubik_model` to provide
-command-line interaction with a Rubik's cube model.
+A Python CLI application that wraps `cube_model` to provide
+command-line interaction with a cube puzzle model.
 
 ## Repo Layout
 
-    src/rubik_cli/   # application source
+    src/cube_cli/   # application source
     tests/           # pytest test suite mirroring src layout
     pyproject.toml   # Poetry config, deps, mypy & pytest settings
 
@@ -25,7 +25,7 @@ Run tests:
 
 Run the CLI directly:
 
-    python -m rubik_cli.main
+    python -m cube_cli.main
 
 ## Dependencies
 Managed by Poetry in `pyproject.toml`. Do not edit that file by hand

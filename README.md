@@ -1,10 +1,10 @@
-# rubik_cli
+# cube_cli
 
-A command-line interface for interacting with rubik_model.
+A command-line interface for interacting with cube_model.
 
 ## Usage
 
-    rubik <command> [options]
+    cube <command> [options]
 
 ## Development
 

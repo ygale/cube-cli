@@ -1,17 +1,17 @@
 [tool.poetry]
-name = "rubik-cli"
+name = "cube-cli"
 version = "0.1.0"
-description = "A CLI application for interacting with rubik_model"
+description = "A CLI application for interacting with cube_model"
 authors = []
 readme = "README.md"
-packages = [{include = "rubik_cli", from = "src"}]
+packages = [{include = "cube_cli", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.13"
-rubik-model = "^1.0.3"
+cube-model = "^1.0.3"
 
 [tool.poetry.scripts]
-rubik = "rubik_cli.main:main"
+cube = "cube_cli.main:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"

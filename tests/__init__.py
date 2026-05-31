@@ -1,1 +1,1 @@
-'''Test suite for rubik_cli.'''
+'''Test suite for cube_cli.'''
