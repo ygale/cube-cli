@@ -1,38 +1,17 @@
 @python.md
+@README.md
 
-# cube_cli — Claude Project Notes
+# cube-cli — Claude Project Notes
 
-## What This Project Is
 A Python CLI application that wraps `cube_model` to provide
 command-line interaction with a cube puzzle model.
 
-## Repo Layout
+## cube command
 
-    src/cube_cli/   # application source
-    tests/           # pytest test suite mirroring src layout
-    pyproject.toml   # Poetry config, deps, mypy & pytest settings
-
-## Running Things
-Do NOT use `poetry run` to execute commands. Use `python -m`:
-
-Type-check:
-
-    python -m mypy --strict src/ tests/
-
-Run tests:
-
-    python -m pytest
-
-Run the CLI directly:
-
-    python -m cube_cli.main
-
-## Dependencies
-Managed by Poetry in `pyproject.toml`. Do not edit that file by hand
-for deps; document the intended `poetry add` command instead and let
-the user run it.
-
-## Editor & Shell
-- Editor: vim
-- Shell scripts: bash
-- On Termux, do not use `poetry run` or `pipx`
+- Use argparse to parse the cube command.
+- README.md and cube --help have the same content. Only the format
+  is different.
+- The only options are --help and --version.
+- If a file is specified, use it to load the initial cube state and
+  set it as the last used file. Otherwise, use a solved cube as the
+  initial cube state, and there is initially no last used file.
