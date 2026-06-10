@@ -43,4 +43,6 @@ load [file] Load a saved cube. If [file] is not specified, load from
 the last file used for a load or save, or to cube.json in the
 current directory.
 
+help, ? Print this command reference.
+
 quit Exit cube.

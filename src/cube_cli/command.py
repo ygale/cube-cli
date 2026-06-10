@@ -138,6 +138,58 @@ class Quit(Command):
     '''Signal the REPL to exit.'''
     return Exit.EXIT
 
+# Command reference text, shared with the --help epilog.
+HELP_TEXT: str = '''\
+Commands:
+
+  Before you enter a command, the current state of the cube is
+  printed in a textual format.
+
+  <moves>     A sequence of moves in standard cube move syntax.
+              Case-insensitive. To specify a wide move, use a
+              'w' suffix.
+
+  ^<moves>    A sequence of moves in standard cube move syntax.
+              Case-sensitive. To specify a wide move, use either
+              a lower-case face letter or a 'w' suffix.
+
+  solve       Return the cube to its initial solved position.
+
+  shuffle     Randomize the position of the cube.
+
+  undo        Undo the last previous command.
+
+  redo        If the last previous command was an undo, reverse
+              its effect.
+
+  save [file] Save the cube to a file. If [file] is not
+              specified, save to the last file used for a load
+              or save, or to cube.json in the current directory.
+
+  load [file] Load a saved cube. If [file] is not specified,
+              load from the last file used for a load or save,
+              or to cube.json in the current directory.
+
+  help, ?     Print this command reference.
+
+  quit        Exit cube.'''
+
+@dataclass
+class Help(Command):
+  '''Print a summary of available commands.'''
+
+  @classmethod
+  def parse(cls, cmd: str) -> Self | None:
+    '''Return a Help if cmd is "help" or "?".'''
+    if cmd.strip().lower() in ('help', '?'):
+      return cls()
+    return None
+
+  def run(self, rs: ReplState) -> Exit | None:
+    '''Print the command reference to stdout.'''
+    print(HELP_TEXT)
+    return None
+
 @dataclass
 class Move(Command):
   '''Apply a parsed sequence of actions to the cube.'''
@@ -186,5 +238,6 @@ all_commands: list[type[Command]] = [
   Undo,
   Redo,
   Quit,
+  Help,
   Move,
 ]
