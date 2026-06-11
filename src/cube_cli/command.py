@@ -129,8 +129,8 @@ class Quit(Command):
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Quit if cmd is "quit".'''
-    if cmd.strip().lower() == 'quit':
+    '''Return a Quit if cmd is "quit" or "q".'''
+    if cmd.strip().lower() in ('quit', 'q'):
       return cls()
     return None
 
@@ -172,7 +172,7 @@ Commands:
 
   help, ?     Print this command reference.
 
-  quit        Exit cube.'''
+  quit, q     Exit cube.'''
 
 @dataclass
 class Help(Command):

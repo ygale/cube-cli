@@ -45,4 +45,4 @@ current directory.
 
 help, ? Print this command reference.
 
-quit Exit cube.
+quit, q Exit cube.
