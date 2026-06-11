@@ -65,7 +65,7 @@ def print_cube(cube: Cube) -> Iterator[str]:
     # back: top-right start
     Side.BACK:   [6, 7, 0,  5, -1, 1,  4, 3, 2],
   }
-  indent: str = ' ' * 6
+  indent: str = ' ' * 8
   sep: str = '-' * 5
   rows: dict[Side, list[str]] = {
     s: _face_grid(cube, s, face_indices[s])
