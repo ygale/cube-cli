@@ -1,12 +1,9 @@
 '''Entry point for the cube_cli application.'''
 import argparse
-import sys
-
-from cube_model import Cube, solved
 
 from ._version import get_version
 from .command import HELP_TEXT
-from .print import print_cube
+from .repl import repl
 
 def _make_parser() -> argparse.ArgumentParser:
   '''Build the argument parser for the cube command.'''
@@ -37,14 +34,6 @@ def _make_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
   '''Run the cube CLI.'''
-  ref: Cube = solved()
   parser: argparse.ArgumentParser = _make_parser()
   args: argparse.Namespace = parser.parse_args()
-  last_file: str | None = args.file
-  if last_file is not None:
-    print('cube: file loading not yet implemented', file=sys.stderr)
-    sys.exit(1)
-  cube: Cube = solved(initial=ref)
-  line: str
-  for line in print_cube(cube):
-    print(line)
+  repl(args.file)

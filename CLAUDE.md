@@ -15,3 +15,16 @@ command-line interaction with a cube puzzle model.
 - If a file is specified, use it to load the initial cube state and
   set it as the last used file. Otherwise, use a solved cube as the
   initial cube state, and there is initially no last used file.
+
+## REPL
+
+- Use readline.
+- If a file is specified on the cube command line, run a Load.
+- REPL loop:
+  - Print the cube.
+  - Prompt: 'Command (? for help, q to quit): '
+  - Parse the command.
+  - If the parse succeeds, run the command. Otherwise, print
+    'Invalid command'
+  - Exit if the command requested it.
+- quit, q, and ^d are recognized as a Quit command.
