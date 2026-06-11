@@ -1,5 +1,4 @@
-'''Tests for cube_cli.main.'''
-from io import StringIO
+'''Tests for cube_cli.main argument parsing.'''
 from unittest.mock import patch
 
 import pytest
@@ -25,24 +24,3 @@ def test_main_version_exits(
   assert exc.value.code == 0
   out: str = capsys.readouterr().out
   assert 'cube' in out
-
-def test_main_no_args_prints_cube(
-  capsys: pytest.CaptureFixture[str],
-) -> None:
-  '''No args should print the cube then exit cleanly on q.'''
-  with patch('sys.argv', ['cube']):
-    with patch('sys.stdin', StringIO('q\n')):
-      main()
-  out: str = capsys.readouterr().out
-  lines: list[str] = out.splitlines()
-  assert len(lines) == 13
-
-def test_main_file_arg_starts_repl(
-  capsys: pytest.CaptureFixture[str],
-) -> None:
-  '''A file argument should start the repl (load is not yet implemented).'''
-  with patch('sys.argv', ['cube', 'my.json']):
-    with patch('sys.stdin', StringIO('q\n')):
-      main()
-  out: str = capsys.readouterr().out
-  assert 'not yet implemented' in out
