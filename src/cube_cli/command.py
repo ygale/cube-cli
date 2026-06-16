@@ -1,12 +1,42 @@
 '''Abstract Command base and all concrete REPL command types.'''
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Self
 
-from cube_model import shuffled, solved
+from cube_model import Color, Cube, Side, shuffled, solved
 from cube_model.action import Action, ParseError, act, parse_actions
+from cube_model.navigation import all_colors, side_color
 
-from .repl_state import Exit, ReplState
+from .repl_state import Exit, LoadError, ReplState, are_you_sure
+from .save_load import SaveError, load, save
+
+DEFAULT_FILE: str = 'cube.json'
+
+_LOAD_RE: re.Pattern[str] = re.compile(r'^load(?:\s+(\S.*?))?$', re.IGNORECASE)
+_SAVE_RE: re.Pattern[str] = re.compile(r'^save(?:\s+(\S.*?))?$', re.IGNORECASE)
+
+def _resolve_file(rs: ReplState, filename: str | None) -> str:
+  '''Resolve the filename to use for a save or load.
+
+  Uses filename if given, otherwise the last used file, otherwise
+  the default file.
+  '''
+  if filename is not None:
+    return filename
+  if rs.last_file is not None:
+    return rs.last_file
+  return DEFAULT_FILE
+
+def _is_solved(cube: Cube) -> bool:
+  '''Return True if every side shows a single uniform color.'''
+  colors: dict[Side, list[Color]] = all_colors(cube)
+  side: Side
+  for side in colors:
+    center: Color = side_color(cube, side)
+    if any(c != center for c in colors[side]):
+      return False
+  return True
 
 @dataclass
 class Command(ABC):
@@ -15,7 +45,8 @@ class Command(ABC):
   @classmethod
   @abstractmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Parse a raw input string; return an instance if it matches.'''
+    '''Parse a raw input string; return an instance if it matches.
+    Assumes that strip() has already been applied.'''
 
   @abstractmethod
   def run(self, rs: ReplState) -> Exit | None:
@@ -28,13 +59,16 @@ class Shuffle(Command):
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
     '''Return a Shuffle if cmd is "shuffle".'''
-    if cmd.strip().lower() == 'shuffle':
+    if cmd == 'shuffle':
       return cls()
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Replace the cube with a shuffled copy.'''
+    '''Replace the cube with a shuffled copy, if confirmed.'''
+    if not are_you_sure(rs):
+      return None
     rs.cube = shuffled(initial=rs.cube)
+    rs.unsaved = True
     return None
 
 @dataclass
@@ -44,13 +78,16 @@ class Solve(Command):
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
     '''Return a Solve if cmd is "solve".'''
-    if cmd.strip().lower() == 'solve':
+    if cmd == 'solve':
       return cls()
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Replace the cube with a solved copy.'''
+    '''Replace the cube with a solved copy, if confirmed.'''
+    if not are_you_sure(rs):
+      return None
     rs.cube = solved(initial=rs.cube)
+    rs.unsaved = False
     return None
 
 @dataclass
@@ -60,16 +97,30 @@ class Load(Command):
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Load if cmd starts with "load".'''
-    parts: list[str] = cmd.strip().split(maxsplit=1)
-    if not parts or parts[0].lower() != 'load':
+    '''Return a Load if cmd starts with "load".
+
+    The filename, if any, runs from the first non-whitespace
+    character after "load" to the end of the line, with only
+    trailing whitespace stripped.
+    '''
+    m: re.Match[str] | None = _LOAD_RE.match(cmd)
+    if m is None:
       return None
-    filename: str | None = parts[1] if len(parts) > 1 else None
-    return cls(filename=filename)
+    return cls(filename=m.group(1))
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Load cube state from file (not yet implemented).'''
-    print('cube: load not yet implemented')
+    '''Load cube state from file, if confirmed.'''
+    if not are_you_sure(rs):
+      return None
+    target: str = _resolve_file(rs, self.filename)
+    result: Cube | LoadError = load(target, rs.cube)
+    if not isinstance(result, Cube):
+      rs.load_error = result
+      rs.print_cube = False
+      return None
+    rs.cube = result
+    rs.last_file = target
+    rs.unsaved = False
     return None
 
 @dataclass
@@ -79,16 +130,28 @@ class Save(Command):
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Save if cmd starts with "save".'''
-    parts: list[str] = cmd.strip().split(maxsplit=1)
-    if not parts or parts[0].lower() != 'save':
+    '''Return a Save if cmd starts with "save".
+
+    The filename, if any, runs from the first non-whitespace
+    character after "save" to the end of the line, with only
+    trailing whitespace stripped.
+    '''
+    m: re.Match[str] | None = _SAVE_RE.match(cmd)
+    if m is None:
       return None
-    filename: str | None = parts[1] if len(parts) > 1 else None
-    return cls(filename=filename)
+    return cls(filename=m.group(1))
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Save cube state to file (not yet implemented).'''
-    print('cube: save not yet implemented')
+    '''Save cube state to file.'''
+    rs.print_cube = False
+    target: str = _resolve_file(rs, self.filename)
+    err: SaveError | None = save(rs.cube, target)
+    if err is not None:
+      print(f'Could not save to {target}: {err}')
+      return None
+    print(f'Cube saved to {target}')
+    rs.last_file = target
+    rs.unsaved = False
     return None
 
 @dataclass
@@ -98,13 +161,14 @@ class Undo(Command):
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
     '''Return an Undo if cmd is "undo".'''
-    if cmd.strip().lower() == 'undo':
+    if cmd == 'undo':
       return cls()
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
     '''Undo the last command (not yet implemented).'''
     print('cube: undo not yet implemented')
+    rs.print_cube= False
     return None
 
 @dataclass
@@ -114,13 +178,14 @@ class Redo(Command):
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
     '''Return a Redo if cmd is "redo".'''
-    if cmd.strip().lower() == 'redo':
+    if cmd == 'redo':
       return cls()
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
     '''Redo the last undone command (not yet implemented).'''
     print('cube: redo not yet implemented')
+    rs.print_cube= False
     return None
 
 @dataclass
@@ -130,12 +195,14 @@ class Quit(Command):
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
     '''Return a Quit if cmd is "quit" or "q".'''
-    if cmd.strip().lower() in ('quit', 'q'):
+    if cmd in ('quit', 'q'):
       return cls()
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Signal the REPL to exit.'''
+    '''Signal the REPL to exit, if confirmed.'''
+    if not are_you_sure(rs):
+      return None
     return Exit.EXIT
 
 # Command reference text, shared with the --help epilog.
@@ -181,13 +248,29 @@ class Help(Command):
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
     '''Return a Help if cmd is "help" or "?".'''
-    if cmd.strip().lower() in ('help', '?'):
+    if cmd in ('help', '?'):
       return cls()
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
     '''Print the command reference to stdout.'''
     print(HELP_TEXT)
+    return None
+
+@dataclass
+class Noop(Command):
+  '''Do nothing.'''
+
+  @classmethod
+  def parse(cls, cmd: str) -> Self | None:
+    '''Return a Noop if cmd is the empty string.'''
+    if not cmd:
+      return cls()
+    return None
+
+  def run(self, rs: ReplState) -> Exit | None:
+    '''Do nothing. Not even print the cube.'''
+    rs.print_cube = False
     return None
 
 @dataclass
@@ -203,16 +286,13 @@ class Move(Command):
     is case-insensitive. Returns None if the input is empty or cannot
     be parsed as a valid move sequence.
     '''
-    stripped: str = cmd.strip()
-    if not stripped:
-      return None
-    if stripped.startswith('^'):
-      tail: str = stripped[1:]
+    if cmd.startswith('^'):
+      tail: str = cmd[1:]
       if not tail:
         return None
       ci: bool = False
     else:
-      tail = stripped
+      tail = cmd
       ci = True
     try:
       actions: list[Action] = parse_actions(tail, ci=ci)
@@ -227,6 +307,7 @@ class Move(Command):
     action: Action
     for action in self.actions:
       act(action, rs.cube)
+    rs.unsaved = not _is_solved(rs.cube)
     return None
 
 # All command types in parse-priority order.
@@ -239,5 +320,6 @@ all_commands: list[type[Command]] = [
   Redo,
   Quit,
   Help,
+  Noop,
   Move,
 ]

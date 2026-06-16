@@ -3,9 +3,10 @@ import readline
 
 from cube_model import Cube, solved
 
-from .command import Command, Load, Quit, all_commands
+from .command import Command, Quit, all_commands
 from .print import print_cube
-from .repl_state import Exit, ReplState
+from .repl_state import Exit, LoadError, ReplState
+from .save_load import SaveError, load
 
 def parse_command(inp: str) -> Command | None:
   '''Try each command type in order; return the first match.'''
@@ -16,36 +17,49 @@ def parse_command(inp: str) -> Command | None:
       return cmd
   return None
 
+def _initial_state(filename: str | None) -> ReplState:
+  '''Build the initial REPL state, loading filename if given.
+
+  If the load fails, report the error.
+  '''
+  if filename is None:
+    return ReplState(cube=solved())
+  result: Cube | LoadError = load(filename, solved())
+  if isinstance(result, Cube):
+    return ReplState(cube=result, last_file=filename)
+  return ReplState(cube=solved(), load_error=result)
+
 def repl(filename: str | None) -> None:
   '''Run the interactive REPL.
 
-  If filename is given, run a Load command as the first command.
-  Otherwise start from a solved cube.
+  If filename is given, load it as the initial cube state. If the
+  load fails, fall back to a solved cube and report the error.
   '''
-  cube: Cube = solved()
-  rs: ReplState = ReplState(cube=cube)
-  if filename is not None:
-    Load(filename=filename).run(rs)
-  print_cube_now: bool = True
+  cmd: Command | None
+  rs: ReplState = _initial_state(filename)
   while True:
-    if print_cube_now:
+    if rs.print_cube:
       line: str
       for line in print_cube(rs.cube):
         print(line)
-    print_cube_now = True
+    else:
+      rs.print_cube = True # reset for next time
+    if rs.load_error is not None:
+      fn: str = rs.load_error.filename
+      msg: str = rs.load_error.msg
+      print(f'Could not load from {fn}: {msg}')
+      rs.load_error = None # reset for next time
     try:
-      inp: str = input('Command (? for help, q to quit): ')
+      inp: str = input(
+        'Command (? for help, q to quit): ').strip()
     except EOFError:
-      Quit().run(rs)
-      break
-    if not inp.strip():
-      print_cube_now = False
-      continue
-    cmd: Command | None = parse_command(inp)
-    if cmd is None:
-      print('Invalid command')
-      print_cube_now = False
-      continue
+      cmd = Quit()
+    else:
+      cmd = parse_command(inp)
+      if cmd is None:
+        print('Invalid command')
+        rs.print_cube = False
+        continue
     result: Exit | None = cmd.run(rs)
     if result is Exit.EXIT:
       break
