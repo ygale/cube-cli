@@ -8,7 +8,15 @@ from cube_model import Color, Cube, Side, shuffled, solved
 from cube_model.action import Action, ParseError, act, parse_actions
 from cube_model.navigation import all_colors, side_color
 
-from .repl_state import Exit, LoadError, ReplState, are_you_sure
+from .repl_state import (
+  Exit,
+  LoadError,
+  ReplState,
+  UndoCube,
+  UndoItem,
+  UndoMove,
+  are_you_sure,
+)
 from .save_load import SaveError, load, save
 
 DEFAULT_FILE: str = 'cube.json'
@@ -67,6 +75,7 @@ class Shuffle(Command):
     '''Replace the cube with a shuffled copy, if confirmed.'''
     if not are_you_sure(rs):
       return None
+    UndoCube.push(rs)
     rs.cube = shuffled(initial=rs.cube)
     rs.unsaved = True
     return None
@@ -86,6 +95,7 @@ class Solve(Command):
     '''Replace the cube with a solved copy, if confirmed.'''
     if not are_you_sure(rs):
       return None
+    UndoCube.push(rs)
     rs.cube = solved(initial=rs.cube)
     rs.unsaved = False
     return None
@@ -118,6 +128,7 @@ class Load(Command):
       rs.load_error = result
       rs.print_cube = False
       return None
+    UndoCube.push(rs)
     rs.cube = result
     rs.last_file = target
     rs.unsaved = False
@@ -166,9 +177,18 @@ class Undo(Command):
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Undo the last command (not yet implemented).'''
-    print('cube: undo not yet implemented')
-    rs.print_cube= False
+    '''Pop and apply the last undo item, if any.
+
+    If the undo buffer is empty, print 'Nothing to undo' instead
+    and do not print the cube.
+    '''
+    if not rs.undo_buf:
+      print('Nothing to undo')
+      rs.print_cube = False
+      return None
+    item: UndoItem = rs.undo_buf.pop()
+    item.undo(rs)
+    rs.redo_buf.append(item)
     return None
 
 @dataclass
@@ -183,9 +203,18 @@ class Redo(Command):
     return None
 
   def run(self, rs: ReplState) -> Exit | None:
-    '''Redo the last undone command (not yet implemented).'''
-    print('cube: redo not yet implemented')
-    rs.print_cube= False
+    '''Pop and apply the last redo item, if any.
+
+    If the redo buffer is empty, print 'Nothing to redo' instead
+    and do not print the cube.
+    '''
+    if not rs.redo_buf:
+      print('Nothing to redo')
+      rs.print_cube = False
+      return None
+    item: UndoItem = rs.redo_buf.pop()
+    item.redo(rs)
+    rs.undo_buf.append(item)
     return None
 
 @dataclass
@@ -304,6 +333,7 @@ class Move(Command):
 
   def run(self, rs: ReplState) -> Exit | None:
     '''Apply each action in sequence to the cube.'''
+    UndoMove.push(rs, self.actions)
     action: Action
     for action in self.actions:
       act(action, rs.cube)

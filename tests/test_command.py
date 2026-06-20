@@ -1,9 +1,9 @@
 '''Tests for Command subclasses: unsaved tracking, confirmation, files.'''
 import json
 from pathlib import Path
-from pytest import MonkeyPatch
+from pytest import CaptureFixture, MonkeyPatch
 
-from cube_model import shuffled, solved
+from cube_model import Cube, shuffled, solved
 
 from cube_cli.command import (
   DEFAULT_FILE,
@@ -11,9 +11,11 @@ from cube_cli.command import (
   Load,
   Move,
   Quit,
+  Redo,
   Save,
   Shuffle,
   Solve,
+  Undo,
   _is_solved,
   _resolve_file,
 )
@@ -51,6 +53,39 @@ def test_move_marks_saved_when_returns_to_solved() -> None:
   cmd.run(rs)
   assert rs.unsaved is False
 
+def test_move_pushes_undo_item() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  cmd: Move | None = Move.parse('R U')
+  assert cmd is not None
+  cmd.run(rs)
+  assert len(rs.undo_buf) == 1
+  assert rs.redo_buf == []
+
+def test_undo_after_move_restores_previous_cube() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  before: Cube = rs.cube
+  cmd: Move | None = Move.parse('R U')
+  assert cmd is not None
+  cmd.run(rs)
+  Undo().run(rs)
+  assert rs.cube == before
+  assert rs.unsaved is False
+  assert rs.undo_buf == []
+  assert len(rs.redo_buf) == 1
+
+def test_redo_after_undo_of_move_reapplies_move() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  cmd: Move | None = Move.parse('R U')
+  assert cmd is not None
+  cmd.run(rs)
+  after_move: Cube = rs.cube
+  Undo().run(rs)
+  Redo().run(rs)
+  assert rs.cube == after_move
+  assert rs.unsaved is True
+  assert rs.redo_buf == []
+  assert len(rs.undo_buf) == 1
+
 def test_shuffle_marks_unsaved() -> None:
   rs: ReplState = ReplState(cube=solved())
   Shuffle().run(rs)
@@ -80,6 +115,31 @@ def test_shuffle_proceeds_when_confirmed(monkeypatch: MonkeyPatch) -> None:
   assert rs.cube is not before
   assert rs.unsaved is True
 
+def test_shuffle_pushes_undo_item_when_confirmed(
+    monkeypatch: MonkeyPatch) -> None:
+  rs: ReplState = ReplState(cube=solved(), unsaved=True)
+  monkeypatch.setattr('builtins.input', lambda _: 'yes')
+  Shuffle().run(rs)
+  assert len(rs.undo_buf) == 1
+  assert rs.redo_buf == []
+
+def test_shuffle_does_not_push_undo_item_when_cancelled(
+    monkeypatch: MonkeyPatch) -> None:
+  rs: ReplState = ReplState(cube=solved(), unsaved=True)
+  monkeypatch.setattr('builtins.input', lambda _: 'no')
+  Shuffle().run(rs)
+  assert rs.undo_buf == []
+
+def test_undo_after_shuffle_restores_previous_cube() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  before: Cube = rs.cube
+  Shuffle().run(rs)
+  Undo().run(rs)
+  assert rs.cube is before
+  assert rs.unsaved is False
+  assert rs.undo_buf == []
+  assert len(rs.redo_buf) == 1
+
 def test_solve_marks_saved() -> None:
   rs: ReplState = ReplState(cube=shuffled(), unsaved=False)
   Solve().run(rs)
@@ -98,6 +158,31 @@ def test_solve_proceeds_when_confirmed(monkeypatch: MonkeyPatch) -> None:
   monkeypatch.setattr('builtins.input', lambda _: 'yes')
   Solve().run(rs)
   assert rs.unsaved is False
+
+def test_solve_pushes_undo_item_when_confirmed(
+    monkeypatch: MonkeyPatch) -> None:
+  rs: ReplState = ReplState(cube=shuffled(), unsaved=True)
+  monkeypatch.setattr('builtins.input', lambda _: 'yes')
+  Solve().run(rs)
+  assert len(rs.undo_buf) == 1
+  assert rs.redo_buf == []
+
+def test_solve_does_not_push_undo_item_when_cancelled(
+    monkeypatch: MonkeyPatch) -> None:
+  rs: ReplState = ReplState(cube=shuffled(), unsaved=True)
+  monkeypatch.setattr('builtins.input', lambda _: 'no')
+  Solve().run(rs)
+  assert rs.undo_buf == []
+
+def test_undo_after_solve_restores_previous_cube() -> None:
+  rs: ReplState = ReplState(cube=shuffled())
+  before: Cube = rs.cube
+  Solve().run(rs)
+  Undo().run(rs)
+  assert rs.cube is before
+  assert rs.unsaved is False
+  assert rs.undo_buf == []
+  assert len(rs.redo_buf) == 1
 
 def test_help_does_not_change_unsaved() -> None:
   rs: ReplState = ReplState(cube=shuffled(), unsaved=True)
@@ -179,6 +264,46 @@ def test_load_cancelled_when_not_confirmed(
   assert rs.cube is before
   assert rs.last_file is None
 
+def test_load_pushes_undo_item_on_success(tmp_path: Path) -> None:
+  f: str = str(tmp_path / 'cube.json')
+  saved_cube: Cube = shuffled()
+  Save(filename=f).run(ReplState(cube=saved_cube))
+  rs: ReplState = ReplState(cube=solved(), unsaved=False)
+  Load(filename=f).run(rs)
+  assert len(rs.undo_buf) == 1
+  assert rs.redo_buf == []
+
+def test_load_does_not_push_undo_item_on_failure(
+    tmp_path: Path) -> None:
+  f: str = str(tmp_path / 'no_such_file.json')
+  rs: ReplState = ReplState(cube=solved())
+  Load(filename=f).run(rs)
+  assert rs.undo_buf == []
+
+def test_load_does_not_push_undo_item_when_cancelled(
+    monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
+  f: str = str(tmp_path / 'cube.json')
+  Save(filename=f).run(ReplState(cube=shuffled()))
+  rs: ReplState = ReplState(cube=solved(), unsaved=True)
+  monkeypatch.setattr('builtins.input', lambda _: 'no')
+  Load(filename=f).run(rs)
+  assert rs.undo_buf == []
+
+def test_undo_after_load_restores_previous_cube_without_reload(
+    tmp_path: Path) -> None:
+  f: str = str(tmp_path / 'cube.json')
+  saved_cube: Cube = shuffled()
+  Save(filename=f).run(ReplState(cube=saved_cube))
+  rs: ReplState = ReplState(cube=solved(), unsaved=False)
+  before: Cube = rs.cube
+  Load(filename=f).run(rs)
+  Undo().run(rs)
+  assert rs.cube is before
+  assert rs.unsaved is False
+  assert rs.last_file == f
+  assert rs.undo_buf == []
+  assert len(rs.redo_buf) == 1
+
 def test_load_parse_filename_with_internal_space() -> None:
   cmd = Load.parse('load my file.json')
   assert cmd is not None
@@ -219,3 +344,49 @@ def test_save_parse_no_filename() -> None:
 
 def test_save_parse_rejects_non_save_prefix() -> None:
   assert Save.parse('savefoo.json') is None
+
+def test_undo_parse_matches_undo() -> None:
+  assert Undo.parse('undo') is not None
+
+def test_undo_parse_rejects_other_input() -> None:
+  assert Undo.parse('undone') is None
+
+def test_undo_with_empty_buffer_prints_message(
+    capsys: CaptureFixture[str]) -> None:
+  rs: ReplState = ReplState(cube=solved())
+  Undo().run(rs)
+  assert capsys.readouterr().out.strip() == 'Nothing to undo'
+
+def test_undo_with_empty_buffer_suppresses_cube_print() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  Undo().run(rs)
+  assert rs.print_cube is False
+
+def test_redo_parse_matches_redo() -> None:
+  assert Redo.parse('redo') is not None
+
+def test_redo_parse_rejects_other_input() -> None:
+  assert Redo.parse('redone') is None
+
+def test_redo_with_empty_buffer_prints_message(
+    capsys: CaptureFixture[str]) -> None:
+  rs: ReplState = ReplState(cube=solved())
+  Redo().run(rs)
+  assert capsys.readouterr().out.strip() == 'Nothing to redo'
+
+def test_redo_with_empty_buffer_suppresses_cube_print() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  Redo().run(rs)
+  assert rs.print_cube is False
+
+def test_new_move_after_undo_clears_redo_buf() -> None:
+  rs: ReplState = ReplState(cube=solved())
+  cmd: Move | None = Move.parse('R')
+  assert cmd is not None
+  cmd.run(rs)
+  Undo().run(rs)
+  assert len(rs.redo_buf) == 1
+  cmd2: Move | None = Move.parse('U')
+  assert cmd2 is not None
+  cmd2.run(rs)
+  assert rs.redo_buf == []

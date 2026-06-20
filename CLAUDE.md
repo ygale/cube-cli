@@ -21,6 +21,9 @@ command-line interaction with a cube puzzle model.
 - Use readline.
 - Whitespace is ignored in REPL commands, except inside the
   filename when specified in a load or save command.
+  In particular, whitespace is stripped from the beginning and end
+  of every command line. However, command names cannot be split up
+  by whitespace.
 - If a filename is specified on the cube command line, load the cube
   from the file before starting the REPL.
 - REPL loop:
@@ -104,3 +107,50 @@ command-line interaction with a cube puzzle model.
   'Could not load from {filename}: {msg}'
   after printing the fallback solved cube and before the first
   prompt, so that the user will notice it.
+
+## Undo and redo
+
+- Commands that modify the cube support an arbitrary number of
+  undos and redos. The commands are Shuffle, Solve, Load, and Move.
+- Undo and redo only affect the cube and its saved/unsaved state.
+- Undo and redo of Load do not reread the file. They only restore
+  previous internal application state. They do not affect the last
+  filename.
+
+### Implementation details
+
+- ReplState has two fields undo_buf and redo_buf of type list[UndoItem] that each act as a stack.
+- Abstract base dataclass UndoItem and two concrete subclasses
+  UndoCube and UndoMove are defined in repl_state.py.
+- UndoItem has field unsaved: bool, rs: ReplState) -> None,
+  abstract method undo(self, rs: ReplState) -> None, and
+  abstract method redo(self, rs: ReplState) -> None.
+- The undo method performs an undo and prepares the object for the
+  redo buffer.
+- The redo method performs a redo and prepares the object for the
+  undo buffer.
+- UndoCube has field cube of type Cube. Its undo and redo methods behave identically: they swap the values of rs.unsaved and self.unsaved, and the values of rs.cube and self.cube.
+- UndoMove has field actions of type list[Action]. Its undo method
+  swaps the values of rs.unsaved and self.unsaved, and applies the
+  inverse of the actions. Its redo method swaps the values of
+  rs.unsaved and self.unsaved, and applies the actions.
+- To obtain the inverse of the actions, reverse the order of the
+  list, and invert the multiplicity of each action. The cube-model
+  library provides a helper for inverting.
+- Each of UndoCube and UndoMove has a push classmethod, but with
+  different signatures: UndoCube.push(this, rs: ReplState) -> None
+  and UndoMove(this, rs: ReplState, actions: list[Action]) -> None.
+- In each case, the push method creates an instance, pushes it into
+  the undo buffer, and clears the redo buffer.
+- The Undo command pops an item off the undo buffer, applies its
+  undo method, and pushes it onto the redo buffer. If the undo
+  buffer is empty, instead it prints "Nothing to undo" and does
+  not print the cube.
+- The Redo command pops an item off the redo buffer, applies its
+  redo method, and pushes it onto the undo buffer. If the redo
+  buffer is empty, instead it prints "Nothing to redo" and does
+  not print the cube.
+- The run methods of the Solve, Shuffle, and Load commands start
+  with running the push method of UndoCube.
+- The run method of the Move command starts with running the push
+  method of UndoMove.
