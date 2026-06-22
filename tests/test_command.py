@@ -10,11 +10,13 @@ from cube_cli.command import (
   Help,
   Load,
   Move,
+  Noop,
   Quit,
   Redo,
   Save,
   Shuffle,
   Solve,
+  Tabbable,
   Undo,
   _is_solved,
   _resolve_file,
@@ -390,3 +392,44 @@ def test_new_move_after_undo_clears_redo_buf() -> None:
   assert cmd2 is not None
   cmd2.run(rs)
   assert rs.redo_buf == []
+
+def test_shuffle_aliases_requires_two_chars() -> None:
+  assert [(a.name, a.min_chars) for a in Shuffle.aliases] == [('shuffle', 2)]
+
+def test_solve_aliases_requires_two_chars() -> None:
+  assert [(a.name, a.min_chars) for a in Solve.aliases] == [('solve', 2)]
+
+def test_undo_aliases_requires_two_chars() -> None:
+  assert [(a.name, a.min_chars) for a in Undo.aliases] == [('undo', 2)]
+
+def test_redo_aliases_requires_three_chars() -> None:
+  assert [(a.name, a.min_chars) for a in Redo.aliases] == [('redo', 3)]
+
+def test_quit_aliases_is_quit_and_q() -> None:
+  assert [a.name for a in Quit.aliases] == ['quit', 'q']
+
+def test_help_aliases_is_help_and_question_mark() -> None:
+  assert [a.name for a in Help.aliases] == ['help', '?']
+
+def test_load_alias_requires_two_chars() -> None:
+  assert [(a.name, a.min_chars) for a in Load.aliases] == [('load', 2)]
+
+def test_save_alias_requires_two_chars() -> None:
+  assert [(a.name, a.min_chars) for a in Save.aliases] == [('save', 2)]
+
+def test_move_and_noop_are_not_tabbable() -> None:
+  assert not issubclass(Move, Tabbable)
+  assert not issubclass(Noop, Tabbable)
+
+def test_match_true_for_exact_alias() -> None:
+  assert Shuffle.match('shuffle') is True
+
+def test_match_false_for_non_alias() -> None:
+  assert Shuffle.match('shuffled') is False
+
+def test_match_true_for_any_of_several_aliases() -> None:
+  assert Quit.match('quit') is True
+  assert Quit.match('q') is True
+
+def test_match_false_for_empty_string() -> None:
+  assert Shuffle.match('') is False

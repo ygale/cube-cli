@@ -1,11 +1,16 @@
-'''Tests for the REPL initial-state loading behavior.'''
+'''Tests for the REPL initial-state loading and tab completion.'''
 from pathlib import Path
 from pytest import CaptureFixture
 
 from cube_model import solved
 
 from cube_cli.command import Save
-from cube_cli.repl import _initial_state
+from cube_cli.repl import (
+  _COMPLETIONS,
+  _NON_COMPLETIONS,
+  _complete,
+  _initial_state,
+)
 from cube_cli.repl_state import ReplState
 
 def test_no_filename_starts_solved() -> None:
@@ -30,3 +35,55 @@ def test_invalid_filename_falls_back_to_solved( tmp_path: Path) -> None:
   assert rs.last_file is None
   assert rs.unsaved is False
   assert rs.cube == solved()
+
+def _all_matches(text: str) -> list[str]:
+  '''Collect every completion _complete offers for text, in order.'''
+  matches: list[str] = []
+  state: int = 0
+  while True:
+    match: str | None = _complete(text, state)
+    if match is None:
+      break
+    matches.append(match)
+    state += 1
+  return matches
+
+def test_completions_cover_all_command_aliases() -> None:
+  assert sorted(_COMPLETIONS) == sorted([
+    'shuffle', 'solve', 'load', 'save', 'undo', 'redo', 'quit', 'q',
+    'help', '?',
+  ])
+
+def test_non_completions_for_all_protected_aliases() -> None:
+  assert _NON_COMPLETIONS == ['s', 's', 'l', 's', 'u', 're']
+
+def test_complete_blocks_bare_move_letters() -> None:
+  '''Bare letters that are also valid moves do not complete:
+  s (slice), l (face), u (face), r (face).
+  '''
+  assert _all_matches('s') == []
+  assert _all_matches('l') == []
+  assert _all_matches('u') == []
+  assert _all_matches('r') == []
+
+def test_complete_blocks_empty_text() -> None:
+  assert _all_matches('') == []
+
+def test_complete_blocks_re_for_redo() -> None:
+  '''"re" alone still does not complete; "red" does.'''
+  assert _all_matches('re') == []
+  assert _all_matches('red') == ['redo']
+
+def test_complete_matches_once_past_min_chars() -> None:
+  assert _all_matches('sh') == ['shuffle']
+  assert _all_matches('so') == ['solve']
+  assert _all_matches('sa') == ['save']
+  assert _all_matches('un') == ['undo']
+  assert _all_matches('lo') == ['load']
+
+def test_complete_is_case_insensitive_and_lower_case() -> None:
+  assert _all_matches('Q') == ['quit', 'q']
+  assert _all_matches('q') == ['quit', 'q']
+
+def test_complete_no_match_returns_none() -> None:
+  assert _complete('zz', 0) is None

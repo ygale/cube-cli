@@ -2,13 +2,14 @@
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Self
+from typing import ClassVar, Self
 
 from cube_model import Color, Cube, Side, shuffled, solved
 from cube_model.action import Action, ParseError, act, parse_actions
 from cube_model.navigation import all_colors, side_color
 
 from .repl_state import (
+  Alias,
   Exit,
   LoadError,
   ReplState,
@@ -61,13 +62,24 @@ class Command(ABC):
     '''Execute the command against the given REPL state.'''
 
 @dataclass
-class Shuffle(Command):
+class Tabbable:
+  '''Mixin for commands that can be tab-completed in the REPL.'''
+  aliases: ClassVar[list[Alias]] = []
+
+  @classmethod
+  def match(cls, inp: str) -> bool:
+    '''Return True if inp equals the name of one of cls's aliases.'''
+    return any(inp == alias.name for alias in cls.aliases)
+
+@dataclass
+class Shuffle(Tabbable, Command):
   '''Randomize the cube.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='shuffle', min_chars=2)]
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Shuffle if cmd is "shuffle".'''
-    if cmd == 'shuffle':
+    '''Return a Shuffle if cmd matches one of its aliases.'''
+    if cls.match(cmd):
       return cls()
     return None
 
@@ -81,13 +93,14 @@ class Shuffle(Command):
     return None
 
 @dataclass
-class Solve(Command):
+class Solve(Tabbable, Command):
   '''Return the cube to its solved state.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='solve', min_chars=2)]
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Solve if cmd is "solve".'''
-    if cmd == 'solve':
+    '''Return a Solve if cmd matches one of its aliases.'''
+    if cls.match(cmd):
       return cls()
     return None
 
@@ -101,8 +114,9 @@ class Solve(Command):
     return None
 
 @dataclass
-class Load(Command):
+class Load(Tabbable, Command):
   '''Load cube state from a file.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='load', min_chars=2)]
   filename: str | None
 
   @classmethod
@@ -135,8 +149,9 @@ class Load(Command):
     return None
 
 @dataclass
-class Save(Command):
+class Save(Tabbable, Command):
   '''Save cube state to a file.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='save', min_chars=2)]
   filename: str | None
 
   @classmethod
@@ -166,13 +181,14 @@ class Save(Command):
     return None
 
 @dataclass
-class Undo(Command):
+class Undo(Tabbable, Command):
   '''Undo the last command.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='undo', min_chars=2)]
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return an Undo if cmd is "undo".'''
-    if cmd == 'undo':
+    '''Return an Undo if cmd matches one of its aliases.'''
+    if cls.match(cmd):
       return cls()
     return None
 
@@ -192,13 +208,14 @@ class Undo(Command):
     return None
 
 @dataclass
-class Redo(Command):
+class Redo(Tabbable, Command):
   '''Redo the last undone command.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='redo', min_chars=4)]
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Redo if cmd is "redo".'''
-    if cmd == 'redo':
+    '''Return a Redo if cmd matches one of its aliases.'''
+    if cls.match(cmd):
       return cls()
     return None
 
@@ -218,13 +235,14 @@ class Redo(Command):
     return None
 
 @dataclass
-class Quit(Command):
+class Quit(Tabbable, Command):
   '''Exit the REPL.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='quit'), Alias(name='q')]
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Quit if cmd is "quit" or "q".'''
-    if cmd in ('quit', 'q'):
+    '''Return a Quit if cmd matches one of its aliases.'''
+    if cls.match(cmd):
       return cls()
     return None
 
@@ -271,13 +289,14 @@ Commands:
   quit, q     Exit cube.'''
 
 @dataclass
-class Help(Command):
+class Help(Tabbable, Command):
   '''Print a summary of available commands.'''
+  aliases: ClassVar[list[Alias]] = [Alias(name='help'), Alias(name='?')]
 
   @classmethod
   def parse(cls, cmd: str) -> Self | None:
-    '''Return a Help if cmd is "help" or "?".'''
-    if cmd in ('help', '?'):
+    '''Return a Help if cmd matches one of its aliases.'''
+    if cls.match(cmd):
       return cls()
     return None
 

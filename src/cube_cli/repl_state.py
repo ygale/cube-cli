@@ -21,6 +21,16 @@ class LoadError:
   filename: str
   msg: str
 
+@dataclass
+class Alias:
+  '''A name by which a Tabbable command can be invoked in the REPL.
+
+  min_chars is the minimum number of characters of name that must
+  be typed before tab completion will offer it.
+  '''
+  name: str
+  min_chars: int = 1
+
 def _invert_action(action: Action) -> Action:
   '''Return the inverse of a single action.
 

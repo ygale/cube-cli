@@ -4,6 +4,7 @@ from cube_model.action import Action, act, parse_actions
 from pytest import MonkeyPatch
 
 from cube_cli.repl_state import (
+  Alias,
   ReplState,
   UndoCube,
   UndoItem,
@@ -78,6 +79,14 @@ def test_default_undo_buf_and_redo_buf_are_empty() -> None:
   rs: ReplState = ReplState(cube=solved())
   assert rs.undo_buf == []
   assert rs.redo_buf == []
+
+def test_alias_defaults_min_chars_to_one() -> None:
+  alias: Alias = Alias(name='solve')
+  assert alias.min_chars == 1
+
+def test_alias_accepts_explicit_min_chars() -> None:
+  alias: Alias = Alias(name='load', min_chars=2)
+  assert alias.min_chars == 2
 
 def test_undo_cube_push_appends_current_state() -> None:
   '''UndoCube.push snapshots rs's current cube and unsaved flag.'''

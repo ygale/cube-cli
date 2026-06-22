@@ -3,10 +3,55 @@ import readline
 
 from cube_model import Cube, solved
 
-from .command import Command, Quit, all_commands
+from .command import Command, Quit, Tabbable, all_commands
 from .print import print_cube
-from .repl_state import Exit, LoadError, ReplState
+from .repl_state import Alias, Exit, LoadError, ReplState
 from .save_load import SaveError, load
+
+# All tab completion candidates
+_COMPLETIONS: list[str] = sorted(a.name
+  for c in all_commands if issubclass(c, Tabbable)
+  for a in c.aliases)
+
+# Do not tab complete if it might be a Move.
+# Avoid comprehension due to mypy bug.
+_NON_COMPLETIONS: set[str] = set()
+cmd: type[Command]
+alias: Alias
+for cmd in all_commands:
+  if issubclass(cmd, Tabbable):
+    for alias in cmd.aliases:
+      if alias.min_chars > 1:
+        _NON_COMPLETIONS.add(alias.name[:alias.min_chars - 1])
+
+# Cached tab completion candidates for a specific input text
+_matches: list[str] = []
+
+def _complete(text: str, state: int) -> str | None:
+  '''Readline completer for REPL commands.
+
+  Matches text against _COMPLETIONS case-insensitively, always
+  returning lower-case completions. Returns no completions at all
+  if text is a prefix of any entry in _NON_COMPLETIONS.
+  '''
+  global _matches
+  text_lower: str = text.lower()
+  if state == 0:
+    if any(nc.startswith(text_lower) for nc in _NON_COMPLETIONS):
+      _matches = []
+    else:
+      _matches = [c for c in _COMPLETIONS if c.startswith(text_lower)]
+  if state < len(_matches):
+    return _matches[state]
+  return None
+
+def _setup_readline() -> None:
+  '''Register the REPL's tab completer with readline.'''
+  readline.set_completer(_complete)
+  if readline.__doc__ is not None and 'libedit' in readline.__doc__:
+    readline.parse_and_bind('bind ^I rl_complete')
+  else:
+    readline.parse_and_bind('tab: complete')
 
 def parse_command(inp: str) -> Command | None:
   '''Try each command type in order; return the first match.'''
@@ -35,6 +80,7 @@ def repl(filename: str | None) -> None:
   If filename is given, load it as the initial cube state. If the
   load fails, fall back to a solved cube and report the error.
   '''
+  _setup_readline()
   cmd: Command | None
   rs: ReplState = _initial_state(filename)
   while True:
@@ -53,6 +99,7 @@ def repl(filename: str | None) -> None:
       inp: str = input(
         'Command (? for help, q to quit): ').strip()
     except EOFError:
+      print()
       cmd = Quit()
     else:
       cmd = parse_command(inp)

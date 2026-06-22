@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cube-cli"
-version = "0.3.0"
+version = "0.4.0"
 description = "A CLI application for interacting with cube_model"
 authors = []
 readme = "README.md"
@@ -16,7 +16,7 @@ cube = "cube_cli.main:main"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
-mypy = "^1.10"
+mypy = ">=1.10,<3.0"
 
 [build-system]
 requires = ["poetry-core"]

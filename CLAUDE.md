@@ -35,6 +35,44 @@ command-line interaction with a cube puzzle model.
   - Exit if the command requested it.
 - quit, q, and ^d are recognized as a Quit command.
 
+## Tab Completion
+
+- The REPL supports tab completion via the readline library.
+- All commands can be tab completed except moves.
+- If the typed text could be a move or could be completed to a move,
+  there is no tab completion, even to a non-move command.
+  - Since currently there is very little overlap between moves and
+    other commands, the only consequence is that there is no
+    completion when the user types just the letter L or the letter
+    S and hits tab.
+- Tab completion is case-insensitive. It works the same regardless
+  of the case of the input text, and it always presents lower-case
+  completions.
+
+### Implementation Details
+
+- Dataclass Alias in repl_state.py has fields name: str
+  and min_chars: int with default 1.
+- In command.py dataclass Tabbable has classvar aliases: list[Alias]
+  and classmethod match(this, inp: str) -> bool that returns True
+  if inp equals the name of one of the aliases.
+- All command classes except Move and Noop inherit from Tabbable
+  and Command.  These commands have an aliases field with the aliases
+  that can be used to invoke them in the REPL.
+- The "undo", "save", "load", "shuffle", and "solve" aliases have
+  min_chars = 2. The "redo" command has min_chars = 3.
+- All tabbable commands except Save and Load use the match method
+  to implement their parse method.
+- In repl.py there is a top-level variable \_COMPLETIONS: list[str]
+  with alias.name for all aliases for all tabbable commands, and
+  a top-level variable \_NON_COMPLETIONS: set[str]
+  with alias.name[:alias.min_chars-1] for all aliases
+  having min_chars > 1
+  for all tabbable commands.
+- repl.py registers a tab completion function that uses
+  \COMPLETIONS with the usual logic, but that returns None if
+  the input text is a prefix of any of the \NON_COMPLETIONS.
+
 ## Save and Load
 
 - The Save command only saves the cube itself, not any other
