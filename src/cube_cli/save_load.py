@@ -22,7 +22,7 @@ def save(cube: Cube, filename: str) -> SaveError | None:
   cj['version'] = get_version()
   try:
     with open(filename, 'w') as f:
-      json.dump(cj, f)
+      json.dump(cj, f, separators=(',',':'))
   except PermissionError:
     return SaveError('permission denied')
   except OSError:
