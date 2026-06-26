@@ -2,27 +2,24 @@
 import readline
 
 from cube_model import Cube, solved
+from typing import cast
 
 from .command import Command, Quit, Tabbable, all_commands
 from .print import print_cube
 from .repl_state import Alias, Exit, LoadError, ReplState
 from .save_load import SaveError, load
 
-# All tab completion candidates
+# All tab completion candidates.
+# Use cast to work around mypy bug.
 _COMPLETIONS: list[str] = sorted(a.name
   for c in all_commands if issubclass(c, Tabbable)
-  for a in c.aliases)
+  for a in cast(Tabbable, c).aliases)
 
 # Do not tab complete if it might be a Move.
-# Avoid comprehension due to mypy bug.
-_NON_COMPLETIONS: set[str] = set()
-cmd: type[Command]
-alias: Alias
-for cmd in all_commands:
-  if issubclass(cmd, Tabbable):
-    for alias in cmd.aliases:
-      if alias.min_chars > 1:
-        _NON_COMPLETIONS.add(alias.name[:alias.min_chars - 1])
+# Use cast to work around mypy bug.
+_NON_COMPLETIONS: set[str] = {a.name[:a.min_chars - 1]
+  for c in all_commands if issubclass(c, Tabbable)
+  for a in cast(Tabbable, c).aliases if a.min_chars > 1}
 
 # Cached tab completion candidates for a specific input text
 _matches: list[str] = []
