@@ -41,13 +41,10 @@ command-line interaction with a cube puzzle model.
 - All commands can be tab completed except moves.
 - If the typed text could be a move or could be completed to a move,
   there is no tab completion, even to a non-move command.
-  - Since currently there is very little overlap between moves and
-    other commands, the only consequence is that there is no
-    completion when the user types just the letter L or the letter
-    S and hits tab.
 - Tab completion is case-insensitive. It works the same regardless
   of the case of the input text, and it always presents lower-case
   completions.
+- Tab completions are offered in alphabetical order.
 
 ### Implementation Details
 
@@ -60,7 +57,7 @@ command-line interaction with a cube puzzle model.
   and Command.  These commands have an aliases field with the aliases
   that can be used to invoke them in the REPL.
 - The "undo", "save", "load", "shuffle", and "solve" aliases have
-  min_chars = 2. The "redo" command has min_chars = 3.
+  min_chars = 2. The "redo" command has min_chars = 4.
 - All tabbable commands except Save and Load use the match method
   to implement their parse method.
 - In repl.py there is a top-level variable \_COMPLETIONS: list[str]
@@ -69,6 +66,10 @@ command-line interaction with a cube puzzle model.
   with alias.name[:alias.min_chars-1] for all aliases
   having min_chars > 1
   for all tabbable commands.
+- Use comprehensions to define \_COMPLETIONS and\_NON_COMPLETIONS.
+  Use cast to work around the mypy bug.
+- \_COMPLETIONS is sorted, so that tab completions are offered in
+  alphabetical order.
 - repl.py registers a tab completion function that uses
   \COMPLETIONS with the usual logic, but that returns None if
   the input text is a prefix of any of the \NON_COMPLETIONS.
