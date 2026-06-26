@@ -64,12 +64,13 @@ def _initial_state(filename: str | None) -> ReplState:
 
   If the load fails, report the error.
   '''
+  ref: Cube = solved()
   if filename is None:
-    return ReplState(cube=solved())
-  result: Cube | LoadError = load(filename, solved())
+    return ReplState(cube=ref)
+  result: Cube | LoadError = load(filename, ref)
   if isinstance(result, Cube):
     return ReplState(cube=result, last_file=filename)
-  return ReplState(cube=solved(), load_error=result)
+  return ReplState(cube=solved(initial=ref), load_error=result)
 
 def repl(filename: str | None) -> None:
   '''Run the interactive REPL.
@@ -100,10 +101,10 @@ def repl(filename: str | None) -> None:
       cmd = Quit()
     else:
       cmd = parse_command(inp)
-      if cmd is None:
-        print('Invalid command')
-        rs.print_cube = False
-        continue
+    if cmd is None:
+      print('Invalid command')
+      rs.print_cube = False
+      continue
     result: Exit | None = cmd.run(rs)
     if result is Exit.EXIT:
       break
