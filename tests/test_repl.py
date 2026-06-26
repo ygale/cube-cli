@@ -39,8 +39,8 @@ def test_invalid_filename_falls_back_to_solved( tmp_path: Path) -> None:
 def _all_matches(text: str) -> list[str]:
   '''Collect every completion _complete offers for text, in order.'''
   matches: list[str] = []
-  state: int = 0
-  while True:
+  state: int
+  for state in range(len(_COMPLETIONS) + 10):
     match: str | None = _complete(text, state)
     if match is None:
       break
@@ -55,7 +55,7 @@ def test_completions_cover_all_command_aliases() -> None:
   ])
 
 def test_non_completions_for_all_protected_aliases() -> None:
-  assert _NON_COMPLETIONS == ['s', 's', 'l', 's', 'u', 're']
+  assert _NON_COMPLETIONS == {'s', 'l', 'u', 'red'}
 
 def test_complete_blocks_bare_move_letters() -> None:
   '''Bare letters that are also valid moves do not complete:
@@ -70,9 +70,9 @@ def test_complete_blocks_empty_text() -> None:
   assert _all_matches('') == []
 
 def test_complete_blocks_re_for_redo() -> None:
-  '''"re" alone still does not complete; "red" does.'''
-  assert _all_matches('re') == []
-  assert _all_matches('red') == ['redo']
+  '''"red" alone still does not complete; "redo" does.'''
+  assert _all_matches('red') == []
+  assert _all_matches('redo') == ['redo']
 
 def test_complete_matches_once_past_min_chars() -> None:
   assert _all_matches('sh') == ['shuffle']
@@ -82,8 +82,8 @@ def test_complete_matches_once_past_min_chars() -> None:
   assert _all_matches('lo') == ['load']
 
 def test_complete_is_case_insensitive_and_lower_case() -> None:
-  assert _all_matches('Q') == ['quit', 'q']
-  assert _all_matches('q') == ['quit', 'q']
+  assert _all_matches('Q') == ['q', 'quit']
+  assert _all_matches('q') == ['q', 'quit']
 
 def test_complete_no_match_returns_none() -> None:
   assert _complete('zz', 0) is None

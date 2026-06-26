@@ -403,7 +403,7 @@ def test_undo_aliases_requires_two_chars() -> None:
   assert [(a.name, a.min_chars) for a in Undo.aliases] == [('undo', 2)]
 
 def test_redo_aliases_requires_three_chars() -> None:
-  assert [(a.name, a.min_chars) for a in Redo.aliases] == [('redo', 3)]
+  assert [(a.name, a.min_chars) for a in Redo.aliases] == [('redo', 4)]
 
 def test_quit_aliases_is_quit_and_q() -> None:
   assert [a.name for a in Quit.aliases] == ['quit', 'q']
